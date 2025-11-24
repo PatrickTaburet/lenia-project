@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import renderShader from "../shaders/render.glsl?raw";
+import vertexShader from "../shaders/vertex.glsl?raw";
 import updateShader from "../shaders/update.glsl?raw";
+import renderShader from "../shaders/render.glsl?raw";
 
 export function ShaderCanvas() {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -9,57 +10,136 @@ export function ShaderCanvas() {
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
-        const scene = new THREE.Scene();
 
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        // 1. RENDERER
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(width, height);
+        container.appendChild(renderer.domElement);
+
+        // 2. CAMERA
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
         camera.position.z = 1;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        container.appendChild(renderer.domElement);
-
-        const uniforms = {
-            u_time: { value: 0.0 },
-            u_resolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
-            u_dt: { value: 0.1 }
+        // 3. RENDERTARGETS (ping-pong)
+        const rtOptions: THREE.RenderTargetOptions = {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            type: THREE.UnsignedByteType,
+            depthBuffer: false,
+            stencilBuffer: false,
         };
-        const geometry = new THREE.PlaneGeometry(2, 2);
-        const material = new THREE.ShaderMaterial({
-            vertexShader: renderShader,
+        let rtA = new THREE.WebGLRenderTarget(width, height, rtOptions);
+        let rtB = new THREE.WebGLRenderTarget(width, height, rtOptions);
+
+        // 4. UNIFORMS 
+        // Communs
+        const resolution = new THREE.Vector2(width, height);
+
+        // Simulation
+        const simUniforms = {
+            u_state: { value: rtA.texture },
+            u_resolution: { value: resolution },
+            u_dt: { value: 0.03 },
+            u_time: { value: 0.0 },
+        };
+
+        // Display
+        const displayUniforms = {
+            u_state: { value: rtA.texture },
+        };
+
+        // 5. SIMULATION SCENE (update)
+        const simScene = new THREE.Scene();
+        const simMaterial = new THREE.ShaderMaterial({
+            vertexShader,
             fragmentShader: updateShader,
-            uniforms,
+            uniforms: simUniforms,
+        });
+        const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), simMaterial);
+        simScene.add(simQuad);
+
+        // 6. DISPLAY SCENE (render)
+        const displayScene = new THREE.Scene();
+        const displayMaterial = new THREE.ShaderMaterial({
+            vertexShader,
+            fragmentShader: renderShader,
+            uniforms: displayUniforms,
         });
 
-        const mesh = new THREE.Mesh(geometry, material);
-        scene.add(mesh);
+        const displayQuad = new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 2),
+            displayMaterial
+        );
+        displayScene.add(displayQuad);
 
-        let animationId: number;
+        // 7. ANIMATION LOOP : ping-pong
+        let sourceRT = rtA;
+        let targetRT = rtB;
+
         let startTime = performance.now();
+        let animationId: number;
 
         const animate = () => {
             const now = performance.now();
             const elapsed = (now - startTime) / 1000;
-            uniforms.u_time.value = elapsed;
+            simUniforms.u_time.value = elapsed;
 
-            renderer.render(scene, camera);
+            // --- PASS 1 : SIMULATION (update.glsl) ---
+            simUniforms.u_state.value = sourceRT.texture;
+
+            renderer.setRenderTarget(targetRT);
+            renderer.render(simScene, camera);
+
+            // --- PASS 2 : AFFICHAGE (render.glsl) ---
+            displayUniforms.u_state.value = targetRT.texture;
+
+            renderer.setRenderTarget(null); // écran
+            renderer.render(displayScene, camera);
+
+            // --- SWAP ---
+            const tmp = sourceRT;
+            sourceRT = targetRT;
+            targetRT = tmp;
+
             animationId = requestAnimationFrame(animate);
         };
+
         animate();
 
+        // 8. RESIZE
         const handleResize = () => {
             if (!container) return;
-            const width = container.clientWidth;
-            const height = container.clientHeight;
+
             renderer.setSize(width, height);
-            uniforms.u_resolution.value.set(width, height);
+            resolution.set(width, height);
+
+            rtA.dispose();
+            rtB.dispose();
+            rtA = new THREE.WebGLRenderTarget(width, height, rtOptions);
+            rtB = new THREE.WebGLRenderTarget(width, height, rtOptions);
+
+            // on met à jour la source pour éviter glitch
+            sourceRT = rtA;
+            targetRT = rtB;
         };
+
         window.addEventListener("resize", handleResize);
+
+        // CLEANUP
         return () => {
             cancelAnimationFrame(animationId);
             window.removeEventListener("resize", handleResize);
-            geometry.dispose();
-            material.dispose();
+            simQuad.geometry.dispose();
+            simMaterial.dispose();
+            displayQuad.geometry.dispose();
+            displayMaterial.dispose();
+            rtA.dispose();
+            rtB.dispose();
             renderer.dispose();
             if (container.contains(renderer.domElement)) {
                 container.removeChild(renderer.domElement);

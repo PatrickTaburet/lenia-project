@@ -43,9 +43,20 @@ float growth(float density)
     return (g - 0.5) * 2.0;
 }
 
+// Génere une seed simple : un disque lumineux au centre
+float seed(vec2 uv) {
+    vec2 c = uv - 0.5;          // centre
+    float r = length(c);        // distance au centre
+    // 1.0 au centre, 0.0 après un certain rayon
+    return smoothstep(0.1, 0.0, r);
+}
+
 void main() {    
-    float current = texture2D(u_state, vUv).r;
-    current = max(current, s);
+   float current = texture2D(u_state, vUv).r;
+    if (u_time < 0.1) {
+        float s = seed(vUv);
+        current = max(current, s);
+    }
 
     float density = neighborhood(vUv);
     float g = growth(density);
