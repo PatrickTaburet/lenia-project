@@ -22,11 +22,12 @@ export function ShaderCanvas() {
         const uniforms = {
             u_time: { value: 0.0 },
             u_resolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
+            u_dt: { value: 0.1 }
         };
         const geometry = new THREE.PlaneGeometry(2, 2);
         const material = new THREE.ShaderMaterial({
-            vertexShader: updateShader,
-            fragmentShader: renderShader,
+            vertexShader: renderShader,
+            fragmentShader: updateShader,
             uniforms,
         });
 
