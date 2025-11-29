@@ -44,7 +44,7 @@ export function ShaderCanvas() {
         const simUniforms = {
             u_state: { value: rtA.texture },
             u_resolution: { value: resolution },
-            u_dt: { value: 0.03 },
+            u_dt: { value: 0.05 },
             u_time: { value: 0.0 },
         };
 
@@ -60,7 +60,10 @@ export function ShaderCanvas() {
             fragmentShader: updateShader,
             uniforms: simUniforms,
         });
-        const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), simMaterial);
+        const simQuad = new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 2),
+            simMaterial
+        );
         simScene.add(simQuad);
 
         // 6. DISPLAY SCENE (render)
