@@ -11,13 +11,16 @@ export function ShaderCanvas() {
         const container = containerRef.current;
         if (!container) return;
 
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        const SIM_WIDTH = 512;
+        const SIM_HEIGHT = 512;
+
+        const viewWidth = container.clientWidth;
+        const viewHeight = container.clientHeight;
 
         // 1. RENDERER
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(width, height);
+        renderer.setSize(viewWidth, viewHeight);
         container.appendChild(renderer.domElement);
 
         // 2. CAMERA
@@ -33,18 +36,19 @@ export function ShaderCanvas() {
             depthBuffer: false,
             stencilBuffer: false,
         };
-        let rtA = new THREE.WebGLRenderTarget(width, height, rtOptions);
-        let rtB = new THREE.WebGLRenderTarget(width, height, rtOptions);
+        let rtA = new THREE.WebGLRenderTarget(SIM_WIDTH, SIM_HEIGHT, rtOptions);
+        let rtB = new THREE.WebGLRenderTarget(SIM_WIDTH, SIM_HEIGHT, rtOptions);
 
         // 4. UNIFORMS 
         // Communs
-        const resolution = new THREE.Vector2(width, height);
+        const simResolution = new THREE.Vector2(SIM_WIDTH, SIM_HEIGHT);
+        // const displayResolution = new THREE.Vector2(viewWidth, viewHeight);
 
         // Simulation
         const simUniforms = {
             u_state: { value: rtA.texture },
-            u_resolution: { value: resolution },
-            u_dt: { value: 0.1 },
+            u_resolution: { value: simResolution },
+            u_dt: { value: 0.02 },
             u_time: { value: 0.0 },
         };
 
@@ -117,18 +121,19 @@ export function ShaderCanvas() {
         // 8. RESIZE
         const handleResize = () => {
             if (!container) return;
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
+            renderer.setSize(newWidth, newHeight);
+            // displayResolution.set(newWidth, newHeight);
 
-            renderer.setSize(width, height);
-            resolution.set(width, height);
+            // rtA.dispose();
+            // rtB.dispose();
+            // rtA = new THREE.WebGLRenderTarget(width, height, rtOptions);
+            // rtB = new THREE.WebGLRenderTarget(width, height, rtOptions);
 
-            rtA.dispose();
-            rtB.dispose();
-            rtA = new THREE.WebGLRenderTarget(width, height, rtOptions);
-            rtB = new THREE.WebGLRenderTarget(width, height, rtOptions);
-
-            // on met à jour la source pour éviter glitch
-            sourceRT = rtA;
-            targetRT = rtB;
+            // // on met à jour la source pour éviter glitch
+            // sourceRT = rtA;
+            // targetRT = rtB;
         };
 
         window.addEventListener("resize", handleResize);

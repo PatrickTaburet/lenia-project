@@ -8,7 +8,7 @@ uniform float u_time;
 varying vec2 vUv;
 
 float kernel(float rNorm) {
-    const float m = 0.5;   // rayon "idéal" en relatif
+    const float m = 0.35;   // rayon "idéal" en relatif
     const float s = 0.15;  // largeur de l'anneau
     float d = rNorm - m;
     return exp(-(d * d) / (2.0 * s * s));
@@ -47,9 +47,9 @@ float neighborhood(vec2 uv) {
 // Détermine l'évolution de l'état de la cellule en fonction de la densité
 float growth(float density) {
     // densité idéale
-    const float mu = 0.5;
+    const float mu = 0.3;
     // largeur de la cloche de la courbe gaussienne
-    const float sigma = 0.2;
+    const float sigma = 0.08;
 
     float d = density - mu;
 
@@ -60,12 +60,12 @@ float growth(float density) {
 }
 
 // Génere une seed simple : un disque lumineux au centre
-// float seed(vec2 uv) {
-//     vec2 c = uv - 0.5;          // centre
-//     float r = length(c);        // distance au centre
-//     // 1.0 au centre, 0.0 après un certain rayon
-//     return smoothstep(0.1, 0.0, r);
-// }
+float seed(vec2 uv) {
+    vec2 c = uv - 0.5;          // centre
+    float r = length(c);        // distance au centre
+    // 1.0 au centre, 0.0 après un certain rayon
+    return smoothstep(0.15, 0.0, r);
+}
 
 // Génération d'aléatoire déterministe
 float rand(vec2 p) {
@@ -87,7 +87,7 @@ float seedBlockNoise(vec2 uv) {
 void main() {
     float current = texture2D(u_state, vUv).r;
     if(u_time < 0.1) {
-        float s = seedNoise(vUv);
+        float s = seed(vUv);
         current = max(current, s);
     }
 
