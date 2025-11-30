@@ -7,36 +7,52 @@ uniform float u_time;
 
 varying vec2 vUv;
 
-// Défini la densité moyenne du voisinage de la cellule
-float neighborhood (vec2 uv)
-{
-    vec2 pixel = 1.0 / u_resolution;
-    const int N = 100;
-    float R = 10.0;
-    float value = 0.0;
+float kernel(float rNorm) {
+    const float m = 0.5;   // rayon "idéal" en relatif
+    const float s = 0.15;  // largeur de l'anneau
+    float d = rNorm - m;
+    return exp(-(d * d) / (2.0 * s * s));
+}
 
-    for (int i = 0 ; i < N ; i++ ) {
-        float angle = 2.0 * 3.14159265 * (float(i) / float(N));
-        vec2 direction = vec2(cos(angle), sin(angle));
-        vec2 uv_neighbor = uv + direction * R * pixel;
-        uv_neighbor = mod(uv_neighbor, 1.0);
-        float neighbor = texture2D(u_state, uv_neighbor).r;
-        value += neighbor;
+// Défini la densité moyenne du voisinage de la cellule
+float neighborhood(vec2 uv) {
+    vec2 pixel = 1.0 / u_resolution;
+    const int NR = 12; // nombre d'échantillons radiaux
+    const int NA = 36; // nombre d'échantillons angulaires
+    float R = 7.0; // rayon max en pixels 
+
+    float sumValue = 0.0;
+    float sumWeight = 0.0;
+
+    for(int ir = 0; ir < NR; ir++) {
+        float r = R * (float(ir) + 0.5) / float(NR);
+        float rNorm = r / R; // [0..1]
+        float w_r = kernel(rNorm); // poids radial
+
+        for(int ia = 0; ia < NA; ia++) {
+            float angle = 2.0 * 3.14159265 * (float(ia) / float(NA));
+            vec2 direction = vec2(cos(angle), sin(angle));
+
+            vec2 uv_neighbor = uv + direction * (r * pixel);
+            uv_neighbor = mod(uv_neighbor, 1.0);
+            float neighbor = texture2D(u_state, uv_neighbor).r;
+            sumValue += w_r * neighbor;
+            sumWeight += w_r;
+        }
     }
 
-    return value / float(N);
+    return (sumWeight > 0.0) ? (sumValue / sumWeight) : 0.0;
 }
 
 // Détermine l'évolution de l'état de la cellule en fonction de la densité
-float growth(float density)
-{
+float growth(float density) {
     // densité idéale
     const float mu = 0.5;
     // largeur de la cloche de la courbe gaussienne
     const float sigma = 0.2;
 
     float d = density - mu;
-    
+
     // fonction gaussienne
     float g = exp(-(d * d) / (2.0 * sigma * sigma));
 
@@ -58,20 +74,20 @@ float rand(vec2 p) {
     return fract(s * 43758.5453123);
 }
 
-float seedNoise(vec2 uv){
+float seedNoise(vec2 uv) {
     float n = rand(uv * 100.0);
     return step(0.8, n);
 }
-float seedBlockNoise(vec2 uv){
+float seedBlockNoise(vec2 uv) {
     vec2 gridUv = floor(uv * 20.0) / 20.0;
     float n = rand(gridUv);
     return step(0.1, n);
 }
 
-void main() {    
-   float current = texture2D(u_state, vUv).r;
-    if (u_time < 0.1) {
-        float s = seedBlockNoise(vUv);
+void main() {
+    float current = texture2D(u_state, vUv).r;
+    if(u_time < 0.1) {
+        float s = seedNoise(vUv);
         current = max(current, s);
     }
 
@@ -82,4 +98,3 @@ void main() {
 
     gl_FragColor = vec4(next, 0.0, 0.0, 1.0);
 }
-

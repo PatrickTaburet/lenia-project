@@ -44,7 +44,7 @@ export function ShaderCanvas() {
         const simUniforms = {
             u_state: { value: rtA.texture },
             u_resolution: { value: resolution },
-            u_dt: { value: 0.05 },
+            u_dt: { value: 0.1 },
             u_time: { value: 0.0 },
         };
 

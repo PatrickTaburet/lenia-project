@@ -9,10 +9,6 @@ void main() {
     // gl_FragColor = vec4(vec3(v), 1.0);
 
     // version un peu psyché
-    vec3 col = vec3(
-        0.5 + 0.5 * sin(10.0 * v),
-        0.5 + 0.5 * sin(10.0 * v + 2.0),
-        0.5 + 0.5 * sin(10.0 * v + 4.0)
-    );
+    vec3 col = vec3(0.5 + 0.5 * sin(10.0 * v), 0.5 + 0.5 * sin(10.0 * v + 2.0), 0.5 + 0.5 * sin(10.0 * v + 4.0));
     gl_FragColor = vec4(col, 1.0);
 }
